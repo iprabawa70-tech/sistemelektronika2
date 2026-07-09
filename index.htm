@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lab Maya | Fluida Dinamis — Prinsip Bernoulli</title>
+<style>
+:root{
+  --navy-deep:#152449;
+  --navy-panel:#213B78;
+  --navy-panel-2:#2A4A94;
+  --amber:#F5A623;
+  --amber-deep:#DD8A0E;
+  --cyan:#54D7EC;
+  --mint:#7EE0C3;
+  --paper:#F3EFE4;
+  --ink:#152449;
+  --ink-soft:#3B4A73;
+  --ring-grey:#C9CEDA;
+  --ring-gold:#C9A227;
+  --danger:#E8604C;
+  --font-display:"Century Gothic","Trebuchet MS","Verdana",sans-serif;
+  --font-body:"Segoe UI","Calibri","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"Consolas","SF Mono","Courier New",monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{
+  width:100%; height:100%; overflow:hidden;
+  background:var(--navy-deep);
+  font-family:var(--font-body);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+#fit-outer{
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  background:
+    radial-gradient(ellipse at 20% 10%, #1c3061 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 90%, #1a2c58 0%, transparent 50%),
+    var(--navy-deep);
+  overflow:hidden;
+}
+#stage{
+  width:1920px; height:1080px;
+  position:relative;
+  transform-origin:center center;
+  flex-shrink:0;
+}
+
+/* ===================== SPLASH SCREEN ===================== */
+#splash{
+  position:absolute; inset:0;
+  background:linear-gradient(180deg, rgba(21,36,73,.22) 0%, rgba(21,36,73,.4) 55%, rgba(21,36,73,.82) 100%), url('assets/images/thumbnail.jpg') center/cover no-repeat;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:500; transition:opacity .7s ease;
+}
+#splash.hidden{opacity:0; pointer-events:none;}
+.splash-eyebrow{
+  font-family:var(--font-display); letter-spacing:.4em; text-transform:uppercase;
+  color:var(--cyan); font-size:18px; margin-bottom:18px; opacity:.9;
+}
+.splash-title{
+  font-family:var(--font-display); font-weight:700; text-transform:uppercase;
+  color:#fff; font-size:64px; letter-spacing:.03em; text-align:center; text-shadow:0 6px 30px rgba(0,0,0,.4);
+  line-height:1.15;
+}
+.splash-title span{color:var(--amber);}
+.splash-sub{
+  margin-top:16px; color:#DCE3F5; font-size:20px; letter-spacing:.03em; text-align:center; max-width:800px;
+}
+.splash-badge{
+  margin-top:34px; padding:10px 26px; border:1.5px solid rgba(255,255,255,.35); border-radius:999px;
+  color:#fff; font-size:14px; letter-spacing:.12em; text-transform:uppercase; font-family:var(--font-display);
+}
+#startBtn{
+  margin-top:46px; padding:20px 56px; font-size:22px; font-family:var(--font-display); text-transform:uppercase;
+  letter-spacing:.15em; font-weight:700; color:var(--navy-deep); background:linear-gradient(180deg,#FFC85C,var(--amber));
+  border:none; border-radius:14px; cursor:pointer; box-shadow:0 10px 0 var(--amber-deep), 0 18px 30px rgba(0,0,0,.35);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+#startBtn:active{transform:translateY(8px); box-shadow:0 2px 0 var(--amber-deep), 0 6px 14px rgba(0,0,0,.3);}
+#startBtn:hover{transform:translateY(-2px);}
+#loadWrap{
+  margin-top:40px; width:420px; display:none; flex-direction:column; align-items:center; gap:10px;
+}
+#loadWrap.show{display:flex;}
+#loadTrack{width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.18); overflow:hidden;}
+#loadBar{height:100%; width:0%; background:linear-gradient(90deg,var(--cyan),var(--mint)); border-radius:6px; transition:width .18s linear;}
+#loadLabel{font-size:13px; color:#CFE0F5; letter-spacing:.08em; font-family:var(--font-mono);}
+
+/* ===================== APP SHELL ===================== */
+#app{position:absolute; inset:0; display:flex; flex-direction:column; opacity:0; transition:opacity .5s ease;}
+#app.show{opacity:1;}
+
+/* Header */
+#topbar{
+  height:104px; flex-shrink:0; display:flex; align-items:center; gap:28px; padding:0 34px;
+  background:linear-gradient(180deg,var(--navy-panel-2),var(--navy-panel));
+  border-bottom:4px solid var(--amber); position:relative; z-index:20;
+}
+.brand{display:flex; align-items:center; gap:16px;}
+.brand-icon{
+  width:60px; height:60px; border-radius:14px; background:radial-gradient(circle at 35% 30%, #5FE3F5, #1D8FB0);
+  display:flex; align-items:center; justify-content:center; box-shadow:inset 0 -6px 10px rgba(0,0,0,.25), 0 6px 14px rgba(0,0,0,.3);
+}
+.brand-title{font-family:var(--font-display); font-weight:700; color:#fff; font-size:15px; letter-spacing:.14em; text-transform:uppercase; line-height:1.4;}
+.brand-title small{display:block; font-size:22px; letter-spacing:.03em; color:var(--amber);}
+
+#tabs{display:flex; gap:8px; margin-left:auto;}
+.tab-btn{
+  font-family:var(--font-display); font-size:14.5px; letter-spacing:.09em; text-transform:uppercase; font-weight:700;
+  color:#C9D3EE; background:rgba(255,255,255,.05); border:2px solid rgba(255,255,255,.12);
+  padding:14px 22px; border-radius:12px 12px 0 0; cursor:pointer; transition:all .18s ease; position:relative; top:2px;
+}
+.tab-btn:hover{color:#fff; background:rgba(255,255,255,.12);}
+.tab-btn.active{
+  color:var(--navy-deep); background:var(--amber); border-color:var(--amber); top:0;
+  box-shadow:0 -6px 16px rgba(0,0,0,.25);
+}
+.tab-btn .num{opacity:.55; font-size:11px; margin-right:6px;}
+
+/* Main panel area */
+#panels{flex:1; position:relative; background:var(--navy-deep); overflow:hidden;}
+.panel{
+  position:absolute; inset:0; display:none; padding:34px 46px; overflow:hidden;
+}
+.panel.active{display:block;}
+
+/* Notebook card - signature element derived from source illustration */
+.notecard{
+  position:relative; background:var(--amber); border-radius:6px; box-shadow:0 20px 40px rgba(0,0,0,.35);
+  padding:30px 40px 30px 74px;
+}
+.notecard::before{
+  content:""; position:absolute; left:14px; top:0; bottom:0; width:2px;
+  background:repeating-linear-gradient(180deg, transparent 0 8px, rgba(21,36,73,.18) 8px 9px);
+}
+.notecard .rings{position:absolute; left:-2px; top:24px; bottom:24px; width:34px; display:flex; flex-direction:column; justify-content:space-between;}
+.ring{width:30px; height:30px; border-radius:50%; border:6px solid var(--ring-grey); background:transparent;}
+.notecard.paper{background:var(--paper);}
+.notecard.paper .ring{border-color:var(--ring-gold);}
+
+/* ===================== TEORI ===================== */
+#panel-teori.active{display:flex; flex-direction:column;}
+.section-heading{display:flex; align-items:baseline; gap:16px; margin-bottom:20px;}
+.section-heading h2{font-family:var(--font-display); font-size:30px; text-transform:uppercase; letter-spacing:.05em; color:#fff;}
+.section-heading .tag{font-family:var(--font-mono); font-size:12px; color:var(--cyan); letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--cyan); padding:4px 10px; border-radius:6px;}
+.teori-grid{flex:1; display:grid; grid-template-columns:1.15fr .85fr; gap:26px; min-height:0;}
+.teori-col{display:flex; flex-direction:column; gap:18px; min-height:0; overflow:hidden;}
+.teori-text{color:var(--ink); font-size:16px; line-height:1.65;}
+.teori-text strong{color:#0E1D42;}
+.eq-box{
+  margin-top:14px; background:var(--navy-deep); color:var(--mint); font-family:var(--font-mono); font-size:19px;
+  padding:14px 20px; border-radius:10px; border-left:5px solid var(--cyan); letter-spacing:.02em;
+}
+.eq-box .lbl{display:block; color:var(--cyan); font-size:11px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:6px; font-family:var(--font-display);}
+.wing-visual{
+  flex:1; background:var(--paper); border-radius:6px; position:relative; overflow:hidden; min-height:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.mini-notes{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+.mini-note{background:var(--navy-panel); border-radius:10px; padding:14px 16px; color:#DCE3F5; font-size:13.5px; line-height:1.5; border-top:3px solid var(--mint);}
+.mini-note b{color:var(--mint); display:block; font-family:var(--font-display); font-size:12px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;}
+
+/* ===================== PROSEDUR ===================== */
+#panel-prosedur .steps{display:flex; flex-direction:column; gap:14px; flex:1; overflow:hidden; justify-content:center;}
+.step-row{display:flex; align-items:flex-start; gap:20px; background:var(--navy-panel); border-radius:12px; padding:16px 22px;}
+.step-num{
+  flex-shrink:0; width:46px; height:46px; border-radius:50%; background:var(--amber); color:var(--navy-deep);
+  font-family:var(--font-display); font-weight:700; font-size:19px; display:flex; align-items:center; justify-content:center;
+}
+.step-body h4{color:#fff; font-family:var(--font-display); font-size:15.5px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;}
+.step-body p{color:#C9D3EE; font-size:14px; line-height:1.5;}
+
+/* ===================== SIMULASI ===================== */
+#panel-simulasi.active{display:flex; gap:26px;}
+.sim-stage{flex:1.4; display:flex; flex-direction:column; gap:14px; min-width:0;}
+.sim-canvas-wrap{
+  flex:1; background:linear-gradient(180deg,#0F1D3D,#152449); border-radius:16px; position:relative; overflow:hidden;
+  border:3px solid var(--navy-panel-2); box-shadow:inset 0 0 60px rgba(0,0,0,.4);
+}
+#simCanvas{width:100%; height:100%; display:block;}
+.gauge-row{display:flex; gap:14px;}
+.gauge{flex:1; background:var(--navy-panel); border-radius:12px; padding:12px 16px; text-align:center; border-bottom:4px solid var(--cyan);}
+.gauge .g-label{font-family:var(--font-display); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#9FB0DA;}
+.gauge .g-val{font-family:var(--font-mono); font-size:24px; color:#fff; margin-top:4px;}
+.gauge .g-unit{font-size:12px; color:var(--mint);}
+.gauge.p-gauge{border-bottom-color:var(--amber);}
+
+.sim-controls{width:400px; flex-shrink:0; display:flex; flex-direction:column; gap:16px; overflow:hidden;}
+.control-card{background:var(--paper); border-radius:14px; padding:20px 22px;}
+.control-card h3{font-family:var(--font-display); font-size:14px; text-transform:uppercase; letter-spacing:.08em; color:var(--navy-deep); margin-bottom:14px; border-bottom:2px solid var(--amber); padding-bottom:8px;}
+.slider-block{margin-bottom:16px;}
+.slider-block:last-child{margin-bottom:0;}
+.slider-block label{display:flex; justify-content:space-between; font-size:13.5px; color:var(--ink-soft); margin-bottom:6px; font-family:var(--font-body);}
+.slider-block label b{color:var(--navy-deep); font-family:var(--font-mono);}
+input[type=range]{
+  -webkit-appearance:none; width:100%; height:8px; border-radius:6px; background:#DDD3BC; outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--amber-deep);
+  border:3px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.3); cursor:pointer;
+}
+.btn-row{display:flex; gap:10px;}
+.btn{
+  font-family:var(--font-display); font-size:13px; letter-spacing:.07em; text-transform:uppercase; font-weight:700;
+  padding:13px 18px; border-radius:10px; border:none; cursor:pointer; flex:1; transition:transform .12s, filter .12s;
+}
+.btn:active{transform:translateY(2px);}
+.btn:hover{filter:brightness(1.08);}
+.btn-primary{background:linear-gradient(180deg,#3AD1E8,var(--cyan)); color:var(--navy-deep); box-shadow:0 5px 0 #1D9DB4;}
+.btn-primary:active{box-shadow:0 2px 0 #1D9DB4;}
+.btn-ghost{background:#fff; color:var(--navy-deep); border:2px solid var(--navy-panel-2); box-shadow:0 5px 0 #B9C1D8;}
+.btn-ghost:active{box-shadow:0 2px 0 #B9C1D8;}
+.btn-reset{background:linear-gradient(180deg,#F17A63,var(--danger)); color:#fff; box-shadow:0 5px 0 #B23F2E;}
+.btn-reset:active{box-shadow:0 2px 0 #B23F2E;}
+.preset-row{display:flex; gap:8px; flex-wrap:wrap;}
+.preset-btn{
+  flex:1; min-width:110px; background:var(--navy-panel); color:#fff; border:none; padding:10px 8px; border-radius:8px;
+  font-size:12px; font-family:var(--font-display); letter-spacing:.05em; text-transform:uppercase; cursor:pointer;
+}
+.preset-btn.active-preset{background:var(--amber); color:var(--navy-deep);}
+.note-line{font-size:12px; color:var(--ink-soft); line-height:1.5; margin-top:12px; border-top:1px dashed #C9BF9F; padding-top:10px;}
+
+/* ===================== LKPD ===================== */
+#panel-lkpd{overflow-y:auto;}
+.lkpd-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;}
+.lkpd-table{width:100%; border-collapse:collapse; font-size:13.5px; background:var(--paper); border-radius:10px; overflow:hidden;}
+.lkpd-table th{background:var(--navy-panel); color:#fff; font-family:var(--font-display); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; padding:10px 8px;}
+.lkpd-table td{padding:9px 8px; text-align:center; border-bottom:1px solid #E1D9C2; color:var(--ink); font-family:var(--font-mono); font-size:13px;}
+.lkpd-table tr:last-child td{border-bottom:none;}
+.lkpd-two{display:grid; grid-template-columns:1.3fr 1fr; gap:24px; height:calc(100% - 0px);}
+.qa-block{margin-top:16px;}
+.qa-block p{font-size:14px; color:var(--ink); margin-bottom:8px; line-height:1.5;}
+.qa-block textarea{
+  width:100%; border-radius:8px; border:1.5px solid #CFC5A6; padding:10px 12px; font-family:var(--font-body);
+  font-size:13.5px; resize:none; background:#fff; color:var(--ink);
+}
+.identity-row{display:flex; gap:12px; margin-bottom:14px;}
+.identity-row input{flex:1; padding:9px 12px; border-radius:8px; border:1.5px solid #CFC5A6; font-size:13px; font-family:var(--font-body); background:#fff;}
+.lkpd-actions{display:flex; gap:10px; margin-top:14px;}
+
+/* ===================== PENGEMBANG ===================== */
+#panel-pengembang.active{display:flex; align-items:center; justify-content:center;}
+.dev-card{
+  display:flex; gap:44px; align-items:center; background:var(--navy-panel); border-radius:22px; padding:46px 56px;
+  max-width:1100px; box-shadow:0 30px 60px rgba(0,0,0,.35); border-top:6px solid var(--amber);
+}
+.dev-photo-wrap{
+  width:210px; height:210px; border-radius:50%; padding:6px; background:linear-gradient(140deg,var(--amber),var(--cyan));
+  flex-shrink:0;
+}
+.dev-photo-wrap img{width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; border:4px solid var(--navy-panel);}
+.dev-info h2{font-family:var(--font-display); font-size:30px; color:#fff; letter-spacing:.02em; margin-bottom:6px;}
+.dev-info .role{color:var(--amber); font-family:var(--font-display); font-size:14px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:18px;}
+.dev-info p{color:#CFDAF2; font-size:14.5px; line-height:1.7; max-width:560px;}
+.dev-badges{display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;}
+.dev-badge{
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.25); color:#DCE3F5; font-size:12px;
+  padding:8px 14px; border-radius:999px; font-family:var(--font-mono); letter-spacing:.03em;
+}
+.dev-ai-note{
+  margin-top:22px; background:rgba(84,215,236,.12); border-left:4px solid var(--cyan); border-radius:8px;
+  padding:12px 16px; font-size:12.5px; color:#B9E7F2; line-height:1.5;
+}
+
+/* Scrollbar (LKPD) */
+#panel-lkpd::-webkit-scrollbar{width:10px;}
+#panel-lkpd::-webkit-scrollbar-thumb{background:var(--navy-panel-2); border-radius:6px;}
+#panel-lkpd::-webkit-scrollbar-track{background:transparent;}
+
+/* Toast */
+#toast{
+  position:absolute; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; z-index:600;
+  background:var(--navy-deep); color:#fff; border:2px solid var(--mint); padding:12px 26px; border-radius:999px;
+  font-size:13.5px; font-family:var(--font-display); letter-spacing:.04em; transition:all .3s ease; pointer-events:none;
+}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div id="fit-outer">
+<div id="stage">
+
+  <!-- ===================== SPLASH ===================== -->
+  <div id="splash">
+    <div class="splash-eyebrow">Lab Maya · Fisika SMA</div>
+    <div class="splash-title"><span>Prinsip Bernoulli</span></div>
+    <div class="splash-badge">Fase F · SMA Tunas Daud</div>
+    <button id="startBtn">▶ Mulai Belajar</button>
+    <div id="loadWrap">
+      <div id="loadTrack"><div id="loadBar"></div></div>
+      <div id="loadLabel">Memuat aset laboratorium… 0%</div>
+    </div>
+  </div>
+
+  <!-- ===================== APP ===================== -->
+  <div id="app">
+    <div id="topbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M3 15c3-4 6 4 9 0s6-4 9 0" stroke="#0B2140" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="brand-title">Fluida Dinamis<small>Prinsip Bernoulli</small></div>
+      </div>
+      <div id="tabs">
+        <button class="tab-btn" data-tab="teori"><span class="num">01</span>Teori</button>
+        <button class="tab-btn" data-tab="prosedur"><span class="num">02</span>Prosedur</button>
+        <button class="tab-btn" data-tab="simulasi"><span class="num">03</span>Simulasi</button>
+        <button class="tab-btn" data-tab="lkpd"><span class="num">04</span>LKPD</button>
+        <button class="tab-btn" data-tab="pengembang"><span class="num">05</span>Pengembang</button>
+      </div>
+    </div>
+
+    <div id="panels">
+
+      <!-- ================= TEORI ================= -->
+      <div class="panel" id="panel-teori">
+        <div class="section-heading"><h2>Proses Terjadinya Efek Bernoulli</h2><span class="tag">Teori</span></div>
+        <div class="teori-grid">
+          <div class="teori-col">
+            <div class="notecard paper" style="flex:1; overflow-y:auto;">
+              <div class="rings"><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div></div>
+              <div class="teori-text">
+                <p><strong>Prinsip Bernoulli</strong> menjelaskan bahwa pada fluida ideal yang mengalir, jumlah tekanan, energi kinetik per satuan volume, dan energi potensial per satuan volume adalah konstan di sepanjang garis alir.</p>
+                <p style="margin-top:10px;">Prosesnya bermula dari <strong>Persamaan Kontinuitas</strong>: ketika penampang pipa menyempit, kecepatan aliran fluida harus meningkat agar debit (volume per waktu) tetap sama. Peningkatan kecepatan ini kemudian menyebabkan penurunan tekanan pada titik penyempitan — inilah inti dari proses Bernoulli.</p>
+                <div class="eq-box"><span class="lbl">Persamaan Kontinuitas</span>A₁ · v₁ = A₂ · v₂</div>
+                <div class="eq-box"><span class="lbl">Persamaan Bernoulli</span>P₁ + ½ρv₁² + ρgh₁ = P₂ + ½ρv₂² + ρgh₂</div>
+                <p style="margin-top:10px;">Pada pipa mendatar (h₁ = h₂), persamaan disederhanakan menjadi hubungan langsung antara kecepatan dan tekanan: <strong>semakin cepat aliran, semakin rendah tekanannya.</strong></p>
+              </div>
+            </div>
+            <div class="mini-notes">
+              <div class="mini-note"><b>Venturimeter</b>Mengukur laju aliran fluida melalui perbedaan tekanan pada pipa yang menyempit.</div>
+              <div class="mini-note"><b>Gaya Angkat Sayap</b>Aliran lebih cepat di atas sayap menurunkan tekanan, menciptakan gaya angkat.</div>
+              <div class="mini-note"><b>Karburator</b>Penyempitan saluran udara mempercepat aliran &amp; menurunkan tekanan untuk menghisap bahan bakar.</div>
+              <div class="mini-note"><b>Penyemprot Parfum</b>Udara cepat di ujung pipa menurunkan tekanan sehingga cairan tersedot naik.</div>
+            </div>
+          </div>
+          <div class="teori-col">
+            <div class="wing-visual" style="flex-direction:column; padding:18px; gap:10px;">
+              <img src="assets/images/thumbnail.jpg" alt="Ilustrasi proses fluida dinamis: pipa venturi, pesawat, dan penampang sayap" style="width:100%; flex:1; object-fit:contain; border-radius:10px; min-height:0;">
+              <p style="font-family:var(--font-body); font-size:12.5px; color:var(--ink-soft); text-align:center; line-height:1.5; flex-shrink:0;">
+                Ilustrasi: penyempitan pipa mempercepat aliran fluida (kiri), penerapannya pada gaya angkat pesawat (kanan atas), dan pola aliran udara pada penampang sayap (bawah) — ketiganya menunjukkan proses yang sama sesuai Prinsip Bernoulli.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PROSEDUR ================= -->
+      <div class="panel" id="panel-prosedur">
+        <div class="section-heading"><h2>Prosedur Percobaan Virtual</h2><span class="tag">Prosedur</span></div>
+        <div class="steps">
+          <div class="step-row"><div class="step-num">1</div><div class="step-body"><h4>Buka Tab Simulasi</h4><p>Masuk ke tab <em>Simulasi</em> untuk menampilkan model pipa Venturi dan sayap pesawat secara interaktif.</p></div></div>
+          <div class="step-row"><div class="step-num">2</div><div class="step-body"><h4>Atur Debit Aliran</h4><p>Geser penggeser <strong>Debit Aliran (Q)</strong> untuk menentukan seberapa deras fluida yang mengalir masuk ke dalam pipa.</p></div></div>
+          <div class="step-row"><div class="step-num">3</div><div class="step-body"><h4>Atur Rasio Penyempitan Pipa</h4><p>Geser penggeser <strong>Diameter Penyempitan (A₂/A₁)</strong> untuk mengubah seberapa sempit bagian tengah pipa.</p></div></div>
+          <div class="step-row"><div class="step-num">4</div><div class="step-body"><h4>Jalankan &amp; Amati</h4><p>Tekan tombol <strong>Jalankan Aliran</strong>, amati perubahan kecepatan partikel dan pembacaan manometer (tekanan) pada dua titik pipa.</p></div></div>
+          <div class="step-row"><div class="step-num">5</div><div class="step-body"><h4>Catat Data pada LKPD</h4><p>Gunakan tombol <strong>Catat Data</strong> pada tab Simulasi, lalu buka tab <em>LKPD</em> untuk mengisi tabel pengamatan dan menjawab pertanyaan analisis.</p></div></div>
+          <div class="step-row"><div class="step-num">6</div><div class="step-body"><h4>Ulangi dengan Nilai Berbeda</h4><p>Tekan <strong>Reset</strong>, ubah kombinasi debit &amp; penyempitan, lalu ulangi pengamatan minimal 3 kali untuk melihat pola hubungan v dan P.</p></div></div>
+        </div>
+      </div>
+
+      <!-- ================= SIMULASI ================= -->
+      <div class="panel" id="panel-simulasi">
+        <div class="sim-stage">
+          <div class="sim-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+          <div class="gauge-row">
+            <div class="gauge"><div class="g-label">Kecepatan v₁</div><div class="g-val" id="v1Val">0.0</div><div class="g-unit">m/s</div></div>
+            <div class="gauge"><div class="g-label">Kecepatan v₂</div><div class="g-val" id="v2Val">0.0</div><div class="g-unit">m/s</div></div>
+            <div class="gauge p-gauge"><div class="g-label">Tekanan P₁</div><div class="g-val" id="p1Val">0</div><div class="g-unit">kPa</div></div>
+            <div class="gauge p-gauge"><div class="g-label">Tekanan P₂</div><div class="g-val" id="p2Val">0</div><div class="g-unit">kPa</div></div>
+          </div>
+        </div>
+        <div class="sim-controls">
+          <div class="control-card">
+            <h3>Parameter Aliran</h3>
+            <div class="slider-block">
+              <label>Debit Aliran (Q) <b id="qLbl">3.0</b> L/s</label>
+              <input type="range" id="qSlider" min="1" max="6" step="0.1" value="3">
+            </div>
+            <div class="slider-block">
+              <label>Rasio Penyempitan (A₂/A₁) <b id="ratioLbl">0.45</b></label>
+              <input type="range" id="ratioSlider" min="0.25" max="0.85" step="0.01" value="0.45">
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="playBtn">▶ Jalankan Aliran</button>
+              <button class="btn btn-reset" id="resetBtn">⟲ Reset</button>
+            </div>
+          </div>
+          <div class="control-card">
+            <h3>Preset Penerapan</h3>
+            <div class="preset-row">
+              <button class="preset-btn active-preset" data-preset="venturi">Venturimeter</button>
+              <button class="preset-btn" data-preset="wing">Sayap Pesawat</button>
+            </div>
+            <div class="note-line" id="presetNote">Mode Venturimeter: amati perbedaan tekanan pada pipa yang menyempit, ditunjukkan oleh ketinggian cairan pada manometer.</div>
+          </div>
+          <div class="control-card">
+            <h3>Catatan Data</h3>
+            <p style="font-size:12.5px; color:var(--ink-soft); line-height:1.5;">Tekan tombol di bawah untuk menyalin nilai v₁, v₂, P₁, P₂ saat ini ke tabel pengamatan pada tab LKPD.</p>
+            <div class="btn-row" style="margin-top:12px;">
+              <button class="btn btn-ghost" id="recordBtn">📋 Catat Data ke LKPD</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= LKPD ================= -->
+      <div class="panel" id="panel-lkpd">
+        <div class="section-heading"><h2>Lembar Kerja Peserta Didik</h2><span class="tag">LKPD</span></div>
+        <div class="notecard paper">
+          <div class="rings"><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div></div>
+          <div class="identity-row">
+            <input type="text" id="namaSiswa" placeholder="Nama Peserta Didik">
+            <input type="text" id="kelasSiswa" placeholder="Kelas / Fase F">
+            <input type="text" id="tanggalSiswa" placeholder="Tanggal Percobaan">
+          </div>
+          <div class="lkpd-two">
+            <div>
+              <h3 style="font-family:var(--font-display); font-size:14px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; color:var(--navy-deep);">Tabel Data Pengamatan</h3>
+              <table class="lkpd-table">
+                <thead><tr><th>Percobaan</th><th>Q (L/s)</th><th>A₂/A₁</th><th>v₁ (m/s)</th><th>v₂ (m/s)</th><th>P₁ (kPa)</th><th>P₂ (kPa)</th></tr></thead>
+                <tbody id="lkpdTableBody">
+                  <tr><td>1</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                  <tr><td>2</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                  <tr><td>3</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                </tbody>
+              </table>
+              <div class="lkpd-actions">
+                <button class="btn btn-ghost" id="clearTableBtn">Bersihkan Tabel</button>
+              </div>
+            </div>
+            <div class="qa-block">
+              <h3 style="font-family:var(--font-display); font-size:14px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; color:var(--navy-deep);">Pertanyaan Analisis</h3>
+              <p>1. Apa yang terjadi pada kecepatan aliran saat penampang pipa menyempit? Jelaskan berdasarkan data di atas.</p>
+              <textarea rows="3"></textarea>
+              <p style="margin-top:12px;">2. Bagaimana hubungan antara kecepatan aliran dan tekanan fluida berdasarkan hasil percobaanmu?</p>
+              <textarea rows="3"></textarea>
+              <p style="margin-top:12px;">3. Sebutkan satu contoh penerapan Prinsip Bernoulli dalam kehidupan sehari-hari selain yang dibahas dalam simulasi.</p>
+              <textarea rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PENGEMBANG ================= -->
+      <div class="panel" id="panel-pengembang">
+        <div class="dev-card">
+          <div class="dev-photo-wrap"><img src="assets/images/profil_pengembang.png" alt="Foto profil pengembang"></div>
+          <div class="dev-info">
+            <h2>I Gusti Bagus Satria Prabawa, M.Pd.</h2>
+            <div class="role">Pengembang Lab Maya · SMA Tunas Daud</div>
+            <p>Laboratorium maya ini dirancang untuk membantu peserta didik fase F memahami proses terjadinya Prinsip Bernoulli pada fluida dinamis secara interaktif, melalui simulasi visual, lembar kerja digital, dan umpan balik langsung.</p>
+            <div class="dev-badges">
+              <div class="dev-badge">Mapel: Fisika</div>
+              <div class="dev-badge">Unit: Fluida Dinamis</div>
+              <div class="dev-badge">Subunit: Proses — Prinsip Bernoulli</div>
+              <div class="dev-badge">Target: Fase F</div>
+            </div>
+            <div class="dev-ai-note">⚙ Keterangan: Konten, tata letak, simulasi interaktif, dan aset suara pada laboratorium maya ini dikembangkan dengan bantuan kecerdasan buatan (AI) sebagai alat bantu pengembangan, di bawah arahan dan kurasi pengembang.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+</div>
+
+<!-- Audio elements -->
+<audio id="sndClick" src="assets/sound/ui_click.wav" preload="auto"></audio>
+<audio id="sndTab" src="assets/sound/tab.wav" preload="auto"></audio>
+<audio id="sndSuccess" src="assets/sound/success.wav" preload="auto"></audio>
+<audio id="sndWhoosh" src="assets/sound/whoosh.wav" preload="auto"></audio>
+<audio id="sndStart" src="assets/sound/start.wav" preload="auto"></audio>
+<audio id="sndReset" src="assets/sound/reset.wav" preload="auto"></audio>
+
+<script>
+/* ============== FIT-TO-SCREEN (16:9, no scroll) ============== */
+function fitStage(){
+  const stage = document.getElementById('stage');
+  const scale = Math.min(window.innerWidth/1920, window.innerHeight/1080);
+  stage.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', fitStage);
+fitStage();
+
+/* ============== SOUND HELPERS ============== */
+function playSound(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  try{ el.currentTime = 0; el.play().catch(()=>{}); }catch(e){}
+}
+
+/* ============== SPLASH / LOADING ============== */
+const startBtn = document.getElementById('startBtn');
+const loadWrap = document.getElementById('loadWrap');
+const loadBar = document.getElementById('loadBar');
+const loadLabel = document.getElementById('loadLabel');
+const splash = document.getElementById('splash');
+const app = document.getElementById('app');
+
+startBtn.addEventListener('click', ()=>{
+  playSound('sndStart');
+  startBtn.style.display='none';
+  loadWrap.classList.add('show');
+  let pct = 0;
+  const timer = setInterval(()=>{
+    pct += Math.random()*18 + 8;
+    if(pct >= 100){
+      pct = 100;
+      clearInterval(timer);
+      loadBar.style.width = '100%';
+      loadLabel.textContent = 'Memuat aset laboratorium… 100%';
+      setTimeout(()=>{
+        splash.classList.add('hidden');
+        app.classList.add('show');
+        playSound('sndSuccess');
+        setTimeout(()=>{ splash.style.display='none'; }, 750);
+      }, 350);
+      return;
+    }
+    loadBar.style.width = pct+'%';
+    loadLabel.textContent = 'Memuat aset laboratorium… '+Math.floor(pct)+'%';
+  }, 160);
+});
+
+/* ============== TABS ============== */
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('.panel');
+function activateTab(name){
+  tabBtns.forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+  panels.forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
+}
+tabBtns.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    playSound('sndTab');
+    activateTab(btn.dataset.tab);
+  });
+});
+activateTab('teori');
+
+/* ============== TOAST ============== */
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._tm);
+  showToast._tm = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============== SIMULASI: VENTURI CANVAS ============== */
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+let cw=0, ch=0;
+function resizeCanvas(){
+  const rect = canvas.parentElement.getBoundingClientRect();
+  cw = canvas.width = rect.width * 2;
+  ch = canvas.height = rect.height * 2;
+  canvas.style.width = rect.width+'px';
+  canvas.style.height = rect.height+'px';
+}
+window.addEventListener('resize', resizeCanvas);
+
+const qSlider = document.getElementById('qSlider');
+const ratioSlider = document.getElementById('ratioSlider');
+const qLbl = document.getElementById('qLbl');
+const ratioLbl = document.getElementById('ratioLbl');
+const v1ValEl = document.getElementById('v1Val');
+const v2ValEl = document.getElementById('v2Val');
+const p1ValEl = document.getElementById('p1Val');
+const p2ValEl = document.getElementById('p2Val');
+const playBtn = document.getElementById('playBtn');
+const resetBtn = document.getElementById('resetBtn');
+const presetBtns = document.querySelectorAll('.preset-btn');
+const presetNote = document.getElementById('presetNote');
+
+let state = {
+  Q: 3.0,        // L/s
+  ratio: 0.45,   // A2/A1
+  running: false,
+  preset: 'venturi',
+  v1:0, v2:0, p1:0, p2:0
+};
+
+const A1 = 0.02; // m^2 (fixed reference area, wide section)
+const rhoWater = 1000;
+const P_ATM = 101.3; // kPa baseline
+
+function computePhysics(){
+  const Qm3 = state.Q/1000; // L/s -> m3/s
+  const A2 = A1*state.ratio;
+  state.v1 = Qm3/A1;
+  state.v2 = Qm3/A2;
+  // Bernoulli (horizontal): P1 - P2 = 0.5*rho*(v2^2 - v1^2)
+  const dP = 0.5*rhoWater*(state.v2*state.v2 - state.v1*state.v1); // Pa
+  state.p1 = P_ATM;
+  state.p2 = P_ATM - dP/1000; // kPa
+  v1ValEl.textContent = state.v1.toFixed(2);
+  v2ValEl.textContent = state.v2.toFixed(2);
+  p1ValEl.textContent = state.p1.toFixed(1);
+  p2ValEl.textContent = Math.max(0,state.p2).toFixed(1);
+}
+
+qSlider.addEventListener('input', ()=>{
+  state.Q = parseFloat(qSlider.value);
+  qLbl.textContent = state.Q.toFixed(1);
+  computePhysics();
+});
+ratioSlider.addEventListener('input', ()=>{
+  state.ratio = parseFloat(ratioSlider.value);
+  ratioLbl.textContent = state.ratio.toFixed(2);
+  computePhysics();
+});
+
+presetBtns.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    playSound('sndClick');
+    presetBtns.forEach(b=>b.classList.remove('active-preset'));
+    btn.classList.add('active-preset');
+    state.preset = btn.dataset.preset;
+    presetNote.textContent = state.preset==='venturi'
+      ? 'Mode Venturimeter: amati perbedaan tekanan pada pipa yang menyempit, ditunjukkan oleh ketinggian cairan pada manometer.'
+      : 'Mode Sayap Pesawat: amati aliran udara yang lebih cepat di sisi atas sayap, menghasilkan tekanan lebih rendah dan gaya angkat.';
+  });
+});
+
+playBtn.addEventListener('click', ()=>{
+  state.running = !state.running;
+  playBtn.textContent = state.running ? '⏸ Jeda Aliran' : '▶ Jalankan Aliran';
+  playSound(state.running ? 'sndWhoosh' : 'sndClick');
+});
+
+resetBtn.addEventListener('click', ()=>{
+  playSound('sndReset');
+  state.Q=3.0; state.ratio=0.45; state.running=false;
+  qSlider.value=3.0; ratioSlider.value=0.45;
+  qLbl.textContent='3.0'; ratioLbl.textContent='0.45';
+  playBtn.textContent='▶ Jalankan Aliran';
+  computePhysics();
+  particles.forEach(p=>p.x = Math.random());
+  showToast('Simulasi direset ke kondisi awal');
+});
+
+document.getElementById('recordBtn').addEventListener('click', ()=>{
+  playSound('sndSuccess');
+  const body = document.getElementById('lkpdTableBody');
+  const rows = body.querySelectorAll('tr');
+  let target = null;
+  for(const r of rows){ if(r.children[1].textContent.trim()==='—'){ target=r; break; } }
+  if(!target){ target = rows[rows.length-1]; }
+  target.children[1].textContent = state.Q.toFixed(1);
+  target.children[2].textContent = state.ratio.toFixed(2);
+  target.children[3].textContent = state.v1.toFixed(2);
+  target.children[4].textContent = state.v2.toFixed(2);
+  target.children[5].textContent = state.p1.toFixed(1);
+  target.children[6].textContent = Math.max(0,state.p2).toFixed(1);
+  showToast('Data dicatat ke tabel LKPD ✓');
+});
+
+document.getElementById('clearTableBtn').addEventListener('click', ()=>{
+  playSound('sndClick');
+  const body = document.getElementById('lkpdTableBody');
+  body.querySelectorAll('tr').forEach((r,i)=>{
+    for(let c=1;c<r.children.length;c++) r.children[c].textContent='—';
+  });
+  showToast('Tabel dibersihkan');
+});
+
+/* Particles for venturi flow animation */
+let particles = [];
+function initParticles(){
+  particles = [];
+  for(let i=0;i<70;i++){
+    particles.push({ x: Math.random(), lane: Math.random() });
+  }
+}
+initParticles();
+
+function pipeYAtX(nx, laneT, wTop, wBot, midTop, midBot){
+  // nx in 0..1 across pipe; returns y range top/bottom depending on narrowing shape
+  return null;
+}
+
+function drawVenturi(){
+  ctx.clearRect(0,0,cw,ch);
+  const W = cw, H = ch;
+  const padX = W*0.06;
+  const pipeTop0 = H*0.28, pipeBot0 = H*0.72;
+  const narrowFrac = 1 - state.ratio; // how much it narrows visually
+  const midTop = H*0.5 - (H*0.5-pipeTop0)*(1-narrowFrac*0.85);
+  const midBot = H*0.5 + (pipeBot0-H*0.5)*(1-narrowFrac*0.85);
+  const x0 = padX, x1 = W*0.36, x2 = W*0.64, x3 = W-padX;
+
+  function topY(x){
+    if(x<x1) return pipeTop0 + (midTop-pipeTop0)*smooth((x-x0)/(x1-x0));
+    if(x<x2) return midTop;
+    return midTop + (pipeTop0-midTop)*smooth((x-x2)/(x3-x2));
+  }
+  function botY(x){
+    if(x<x1) return pipeBot0 + (midBot-pipeBot0)*smooth((x-x0)/(x1-x0));
+    if(x<x2) return midBot;
+    return midBot + (pipeBot0-midBot)*smooth((x-x2)/(x3-x2));
+  }
+  function smooth(t){ t=Math.max(0,Math.min(1,t)); return t*t*(3-2*t); }
+
+  // pipe body
+  ctx.beginPath();
+  ctx.moveTo(x0, topY(x0));
+  for(let x=x0;x<=x3;x+=6) ctx.lineTo(x, topY(x));
+  for(let x=x3;x>=x0;x-=6) ctx.lineTo(x, botY(x));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(84,215,236,0.06)';
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#2A4A94';
+  ctx.beginPath();
+  for(let x=x0;x<=x3;x+=6){ if(x===x0) ctx.moveTo(x,topY(x)); else ctx.lineTo(x,topY(x)); }
+  ctx.stroke();
+  ctx.beginPath();
+  for(let x=x0;x<=x3;x+=6){ if(x===x0) ctx.moveTo(x,botY(x)); else ctx.lineTo(x,botY(x)); }
+  ctx.stroke();
+
+  // manometer tubes at two measure points
+  const m1x = W*0.24, m2x = W*0.5;
+  drawManometer(m1x, topY(m1x), state.p1, '#54D7EC');
+  drawManometer(m2x, topY(m2x), state.p2, '#F5A623');
+
+  // labels
+  ctx.font = '600 22px Consolas, monospace';
+  ctx.fillStyle = '#9FB0DA';
+  ctx.textAlign='center';
+  ctx.fillText('Titik 1', m1x, topY(m1x)-70);
+  ctx.fillText('Titik 2', m2x, topY(m2x)-70);
+
+  // particles
+  const speedBase = state.running ? (0.15 + state.Q*0.05) : 0;
+  ctx.fillStyle = '#7EE0C3';
+  particles.forEach(p=>{
+    // local speed depends on local pipe width (narrower = faster)
+    const x = x0 + p.x*(x3-x0);
+    const localTop = topY(x), localBot = botY(x);
+    const widthNow = localBot-localTop;
+    const widthWide = pipeBot0-pipeTop0;
+    const speedFactor = widthWide/Math.max(widthNow,1);
+    p.x += speedBase*0.006*speedFactor;
+    if(p.x>1) p.x -= 1;
+    const y = localTop + p.lane*(localBot-localTop);
+    const r = 4 + Math.min(3, speedFactor*0.6);
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle = speedFactor>1.4 ? '#F5A623' : '#54D7EC';
+    ctx.fill();
+  });
+
+  requestAnimationFrame(drawVenturi);
+}
+
+function drawManometer(x, topPipeY, pressureKpa, color){
+  const tubeH = 130;
+  const tubeTopY = topPipeY - tubeH - 10;
+  const tubeW = 26;
+  // tube outline
+  ctx.strokeStyle = '#54627E';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(x-tubeW/2, tubeTopY, tubeW, tubeH);
+  // liquid level: higher pressure => higher liquid column (inverted physically but visually intuitive: more P pushes liquid up in side tube)
+  const level = Math.max(0.05, Math.min(0.95, (pressureKpa-95)/25));
+  const liquidH = tubeH*level;
+  ctx.fillStyle = color;
+  ctx.fillRect(x-tubeW/2+3, tubeTopY+tubeH-liquidH, tubeW-6, liquidH);
+}
+
+resizeCanvas();
+computePhysics();
+requestAnimationFrame(drawVenturi);
+
+/* Recompute canvas size once app becomes visible/tab shown */
+document.querySelector('[data-tab="simulasi"]').addEventListener('click', ()=>{ setTimeout(resizeCanvas, 50); });
+window.addEventListener('load', ()=>setTimeout(resizeCanvas,100));
+</script>
+</body>
+</html>
